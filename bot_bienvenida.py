@@ -1,14 +1,15 @@
 from keep_alive import keep_alive
 import discord
 import os
+
 # Configuración de permisos (Intents)
 intents = discord.Intents.default()
-intents.members = True  # <--- VITAL para ver quién entra y sale
+intents.members = True
 
 client = discord.Client(intents=intents)
 
 # TUS CANALES
-ID_CANAL_BIENVENIDA = 875180338366803979 
+ID_CANAL_BIENVENIDA = 875180338366803979
 ID_CANAL_DESPEDIDA = 875184506548662272
 
 @client.event
@@ -22,11 +23,10 @@ async def on_member_join(member):
     
     if canal:
         embed = discord.Embed(
-            title="¡Nuevo Tripulante a bordo!", 
-            description=f"Bienvenido al servidor, {member.mention}", # Usamos mention para que le llegue notificación
-            color=0x00ff00 # Verde
+            title="¡Nuevo Tripulante a bordo!",
+            description=f"Bienvenido al servidor, {member.mention}",
+            color=0x00ff00
         )
-        # Ponemos la foto del usuario
         embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
         
         await canal.send(embed=embed)
@@ -39,16 +39,20 @@ async def on_member_remove(member):
     
     if canal:
         embed = discord.Embed(
-            title="Un tripulante ha partido...", 
-            description=f"**{member.name}** ha abandonado la nave.", # Sin mention, solo el nombre
-            color=0xff0000 # Rojo
+            title="Un tripulante ha partido...",
+            description=f"**{member.name}** ha abandonado la nave.",
+            color=0xff0000
         )
-        # Ponemos la foto del usuario
         embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
         
         await canal.send(embed=embed)
         print(f"Despedida enviada para {member.name}")
 
-# Pega aquí tu NUEVO TOKEN (regenera el que mostraste por seguridad)
+# INICIA EL SERVIDOR FLASK PARA RENDER
 keep_alive()
+
+# OBTIENE TOKEN
 TOKEN = os.getenv("DISCORD_TOKEN")
+
+# EJECUTA EL BOT (ESTO FALTABA)
+client.run(TOKEN)
