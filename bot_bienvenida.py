@@ -1,7 +1,7 @@
 from keep_alive import keep_alive
 import discord
 import os
-import requests
+import aiohttp
 import asyncio
 import time
 
@@ -13,7 +13,6 @@ client = discord.Client(intents=intents)
 ID_CANAL_BIENVENIDA = 875180338366803979
 ID_CANAL_DESPEDIDA = 875184506548662272
 ID_CANAL_TWITCH = 1439420598316175481
-
 
 # ------------------ CONFIG TWITCH ------------------
 TWITCH_USER = os.getenv("TWITCH_USER")
@@ -28,11 +27,10 @@ TWITCH_TOKEN = None
 TOKEN_EXPIRE = 0
 
 
-# ------------------ TOKEN TWITCH (OPTIMIZADO) ------------------
-def obtener_token_twitch():
+# ------------------ TOKEN TWITCH ASYNC ------------------
+async def obtener_token_twitch(session):
     global TWITCH_TOKEN, TOKEN_EXPIRE
 
-    # Si el token aún es válido ➤ REUTILIZA
     if TWITCH_TOKEN and time.time() < TOKEN_EXPIRE:
         return TWITCH_TOKEN
 
@@ -45,19 +43,20 @@ def obtener_token_twitch():
         "grant_type": "client_credentials"
     }
 
-    r = requests.post(url, data=payload).json()
+    async with session.post(url, data=payload) as resp:
+        data = await resp.json()
 
-    TWITCH_TOKEN = r["access_token"]
-    TOKEN_EXPIRE = time.time() + r["expires_in"] - 60  # renueva 1 min antes de expirar
+    TWITCH_TOKEN = data["access_token"]
+    TOKEN_EXPIRE = time.time() + data["expires_in"] - 60
 
     return TWITCH_TOKEN
 
 
-# ------------------ VERIFICAR STREAM ------------------
-async def verificar_stream():
+# ------------------ VERIFICAR STREAM (ASYNC) ------------------
+async def verificar_stream(session):
     global ya_notificado
 
-    token = obtener_token_twitch()
+    token = await obtener_token_twitch(session)
 
     headers = {
         "Client-ID": CLIENT_ID,
@@ -67,24 +66,33 @@ async def verificar_stream():
     url = f"https://api.twitch.tv/helix/streams?user_login={TWITCH_USER}"
 
     try:
-        r = requests.get(url, headers=headers).json()
+        async with session.get(url, headers=headers) as resp:
+
+            # Manejo de límite de peticiones
+            if resp.status == 429:
+                print("⛔ RATE LIMIT Twitch — esperando 60s")
+                await asyncio.sleep(60)
+                return
+
+            data = await resp.json()
+
     except Exception as e:
         print(f"⚠ Error al consultar Twitch: {e}")
         return
 
-    # Si está en vivo
-    if r.get("data"):
-        data = r["data"][0]
+    # Si está en vivo:
+    if data.get("data"):
+        stream = data["data"][0]
 
         if not ya_notificado:
             canal = client.get_channel(ID_CANAL_TWITCH)
 
-            titulo = data["title"]
-            juego = data.get("game_name", "Desconocido")
+            titulo = stream["title"]
+            juego = stream.get("game_name", "Desconocido")
 
             embed = discord.Embed(
                 title="🟣 ¡STREAM EN VIVO!",
-                description=f"**{TWITCH_USER}** acaba de iniciar un directo.\n\n**{titulo}**",
+                description=f"**{TWITCH_USER}** acaba de iniciar directo.\n\n**{titulo}**",
                 color=0x9146FF
             )
 
@@ -93,13 +101,14 @@ async def verificar_stream():
             embed.set_image(url=f"https://static-cdn.jtvnw.net/previews-ttv/live_user_{TWITCH_USER}-640x360.jpg")
 
             await canal.send(embed=embed)
-            ya_notificado = True
             print("🔔 Notificación enviada")
 
+            ya_notificado = True
+
     else:
-        # No notifica cuando termina, solo resetea
+        # Directo finalizado (no notificar)
         if ya_notificado:
-            print("🟤 Stream finalizado, listo para próxima notificación.")
+            print("🟤 Stream finalizado. Esperando siguiente directo.")
         ya_notificado = False
 
 
@@ -108,9 +117,10 @@ async def verificar_stream():
 async def on_ready():
     print(f"Bot listo como {client.user}")
 
-    while True:
-        await verificar_stream()
-        await asyncio.sleep(CHECK_SECONDS)
+    async with aiohttp.ClientSession() as session:
+        while True:
+            await verificar_stream(session)
+            await asyncio.sleep(CHECK_SECONDS)
 
 
 # ------------------ BIENVENIDA ------------------
@@ -147,7 +157,6 @@ async def on_member_remove(member):
 
 # ------------------ KEEP ALIVE ------------------
 keep_alive()
-
 
 # ------------------ RUN ------------------
 TOKEN = os.getenv("DISCORD_TOKEN")
