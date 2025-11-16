@@ -100,7 +100,7 @@ async def verificar_stream(session):
             embed.add_field(name="Ver Stream", value=f"https://twitch.tv/{TWITCH_USER}")
             embed.set_image(url=f"https://static-cdn.jtvnw.net/previews-ttv/live_user_{TWITCH_USER}-640x360.jpg")
 
-            await canal.send(embed=embed)
+            await canal.send(content="@everyone", embed=embed)
             print("🔔 Notificación enviada")
 
             ya_notificado = True
