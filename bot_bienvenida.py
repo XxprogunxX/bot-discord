@@ -4,7 +4,7 @@ import os
 
 # Configuración de permisos (Intents)
 intents = discord.Intents.default()
-intents.members = True
+intents.members = True  # Necesario para detectar join/leave
 
 client = discord.Client(intents=intents)
 
@@ -23,12 +23,19 @@ async def on_member_join(member):
     
     if canal:
         embed = discord.Embed(
-            title="¡Nuevo Tripulante a bordo!",
+            title="¡Nuevo Tripulante a bordo! 🚀",
             description=f"Bienvenido al servidor, {member.mention}",
             color=0x00ff00
         )
-        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-        
+
+        # Foto del usuario
+        embed.set_thumbnail(
+            url=member.avatar.url if member.avatar else member.default_avatar.url
+        )
+
+        # 👉 Si quieres agregar un GIF aquí, descomenta esta línea:
+        embed.set_image(url="https://i.pinimg.com/originals/7a/e5/c3/7ae5c335819cffea1cbdf982d78a7fc7.gif")
+
         await canal.send(embed=embed)
         print(f"Bienvenida enviada para {member.name}")
 
@@ -39,20 +46,26 @@ async def on_member_remove(member):
     
     if canal:
         embed = discord.Embed(
-            title="Un tripulante ha partido...",
+            title="Un tripulante ha partido... 💔",
             description=f"**{member.name}** ha abandonado la nave.",
             color=0xff0000
         )
-        embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-        
+
+        embed.set_thumbnail(
+            url=member.avatar.url if member.avatar else member.default_avatar.url
+        )
+
+        # 👉 Si quieres GIF de despedida:
+        embed.set_image(url="https://imgur.com/RTmvbzu.gif")
+
         await canal.send(embed=embed)
         print(f"Despedida enviada para {member.name}")
 
-# INICIA EL SERVIDOR FLASK PARA RENDER
+# INICIA EL SERVIDOR FLASK
 keep_alive()
 
-# OBTIENE TOKEN
+# TOKEN
 TOKEN = os.getenv("DISCORD_TOKEN")
 
-# EJECUTA EL BOT (ESTO FALTABA)
+# EJECUTAR EL BOT
 client.run(TOKEN)
